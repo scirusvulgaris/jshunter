@@ -375,9 +375,12 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
             fmt.Printf("Invalid proxy URL: %v\n", err)
             return urlStr, nil
         }
-        client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+        client = &http.Client{ Transport: &http.Transport{
+        Proxy:           http.ProxyURL(proxyURL), // if proxy exists
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureFlag}}
     } else {
-        client = &http.Client{}
+        client = &http.Client{ Transport: &http.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureFlag}}
     }
 
     var sensitiveData map[string][]string

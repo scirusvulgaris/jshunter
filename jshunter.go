@@ -383,7 +383,6 @@ func enqueueFromStdin(urlChannel chan<- string) {
     }
 }
 
-
 func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[string][]string) {
     var client *http.Client
 
@@ -400,8 +399,7 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
     if proxy != "" {
         proxyURL, err := url.Parse(proxy)
         if err != nil {
-            fmt.Printf("%s[ERROR]%s Invalid proxy URL: %v\n", 
-                colors["RED"], colors["NC"], err)
+            fmt.Printf("%s[ERROR]%s Invalid proxy URL\n", colors["RED"], colors["NC"])
             return urlStr, nil
         }
         transport.Proxy = http.ProxyURL(proxyURL)
@@ -417,8 +415,7 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
     if strings.HasPrefix(urlStr, "http://") || strings.HasPrefix(urlStr, "https://") {
         req, err := http.NewRequest("GET", urlStr, nil)
         if err != nil {
-            fmt.Printf("%s[ERROR]%s Failed to create request for %s: %v\n", 
-                colors["RED"], colors["NC"], urlStr, err)
+            fmt.Printf("%s[ERROR]%s Failed to create request for %s\n", colors["RED"], colors["NC"], urlStr)
             return urlStr, nil
         }
 
@@ -429,28 +426,14 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
 
         resp, err := client.Do(req)
         if err != nil {
-            switch {
-            case strings.Contains(err.Error(), "connection reset by peer"):
-                fmt.Printf("%s[CONNECTION RESET]%s %s - Connection reset\n", 
-                    colors["YELLOW"], colors["NC"], urlStr)
-            case strings.Contains(err.Error(), "connection refused"):
-                fmt.Printf("%s[CONNECTION REFUSED]%s %s - Service unavailable\n", 
-                    colors["YELLOW"], colors["NC"], urlStr)
-            case strings.Contains(err.Error(), "timeout"):
-                fmt.Printf("%s[TIMEOUT]%s %s - Request timed out\n", 
-                    colors["YELLOW"], colors["NC"], urlStr)
-            default:
-                fmt.Printf("%s[ERROR]%s Failed to fetch %s: %v\n", 
-                    colors["RED"], colors["NC"], urlStr, err)
-            }
+            fmt.Printf("%s[ERROR]%s Failed to fetch %s\n", colors["RED"], colors["NC"], urlStr)
             return urlStr, nil
         }
         defer resp.Body.Close()
 
         body, err := ioutil.ReadAll(resp.Body)
         if err != nil {
-            fmt.Printf("%s[ERROR]%s Failed to read response from %s: %v\n", 
-                colors["RED"], colors["NC"], urlStr, err)
+            fmt.Printf("%s[ERROR]%s Failed to read response from %s\n", colors["RED"], colors["NC"], urlStr)
             return urlStr, nil
         }
 
@@ -458,8 +441,7 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
     } else {
         body, err := ioutil.ReadFile(urlStr)
         if err != nil {
-            fmt.Printf("%s[ERROR]%s Failed to read local file %s: %v\n", 
-                colors["RED"], colors["NC"], urlStr, err)
+            fmt.Printf("%s[ERROR]%s Failed to read local file %s\n", colors["RED"], colors["NC"], urlStr)
             return urlStr, nil
         }
 

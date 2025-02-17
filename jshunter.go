@@ -335,17 +335,33 @@ func enqueueURLs(url, list string, urlChannel chan<- string, regex string) error
 }
 
 func enqueueFromFile(filename string, urlChannel chan<- string) error {
+    // First, try to open the file containing the URLs
     file, err := os.Open(filename)
     if err != nil {
-        return fmt.Errorf("Error opening file: %w", err)
+        return fmt.Errorf("Error reading local file : %w", err)
     }
     defer file.Close()
 
+    // Create a scanner to read the file line by line
     scanner := bufio.NewScanner(file)
     for scanner.Scan() {
-        urlChannel <- scanner.Text()
+        url := scanner.Text()
+        // Trim any whitespace
+        url = strings.TrimSpace(url)
+        if url != "" {
+            // If the URL doesn't start with http:// or https://, add https://
+            if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+                url = "https://" + url
+            }
+            urlChannel <- url
+        }
     }
-    return scanner.Err()
+
+    if err := scanner.Err(); err != nil {
+        return fmt.Errorf("Error reading file: %w", err)
+    }
+
+    return nil
 }
 
 func enqueueSingleURL(url string, urlChannel chan<- string, regex string) {

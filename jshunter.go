@@ -386,24 +386,29 @@ func enqueueFromStdin(urlChannel chan<- string) {
 func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[string][]string) {
     var client *http.Client
 
+    // Set timeout to prevent hanging
+    timeout := time.Duration(10 * time.Second)
+    transport := &http.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureFlag},
+        DialContext: (&net.Dialer{
+            Timeout:   timeout,
+            KeepAlive: timeout,
+        }).DialContext,
+    }
+
     if proxy != "" {
         proxyURL, err := url.Parse(proxy)
         if err != nil {
-            fmt.Printf("Invalid proxy URL: %v\n", err)
+            fmt.Printf("%s[ERROR]%s Invalid proxy URL: %v\n", 
+                colors["RED"], colors["NC"], err)
             return urlStr, nil
         }
-        client = &http.Client{
-            Transport: &http.Transport{
-                Proxy:           http.ProxyURL(proxyURL),
-                TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureFlag},
-            },
-        }
-    } else {
-        client = &http.Client{
-            Transport: &http.Transport{
-                TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureFlag},
-            },
-        }
+        transport.Proxy = http.ProxyURL(proxyURL)
+    }
+
+    client = &http.Client{
+        Transport: transport,
+        Timeout:   timeout,
     }
 
     var sensitiveData map[string][]string
@@ -411,24 +416,40 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
     if strings.HasPrefix(urlStr, "http://") || strings.HasPrefix(urlStr, "https://") {
         req, err := http.NewRequest("GET", urlStr, nil)
         if err != nil {
-            fmt.Printf("Failed to create request for URL %s: %v\n", urlStr, err)
+            fmt.Printf("%s[ERROR]%s Failed to create request for %s: %v\n", 
+                colors["RED"], colors["NC"], urlStr, err)
             return urlStr, nil
         }
 
         if cookie != "" {
             req.Header.Set("Cookie", cookie)
         }
+        req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
         resp, err := client.Do(req)
         if err != nil {
-            fmt.Printf("Failed to fetch URL %s: %v\n", urlStr, err)
+            switch {
+            case strings.Contains(err.Error(), "connection reset by peer"):
+                fmt.Printf("%s[CONNECTION RESET]%s %s - Connection reset\n", 
+                    colors["YELLOW"], colors["NC"], urlStr)
+            case strings.Contains(err.Error(), "connection refused"):
+                fmt.Printf("%s[CONNECTION REFUSED]%s %s - Service unavailable\n", 
+                    colors["YELLOW"], colors["NC"], urlStr)
+            case strings.Contains(err.Error(), "timeout"):
+                fmt.Printf("%s[TIMEOUT]%s %s - Request timed out\n", 
+                    colors["YELLOW"], colors["NC"], urlStr)
+            default:
+                fmt.Printf("%s[ERROR]%s Failed to fetch %s: %v\n", 
+                    colors["RED"], colors["NC"], urlStr, err)
+            }
             return urlStr, nil
         }
         defer resp.Body.Close()
 
         body, err := ioutil.ReadAll(resp.Body)
         if err != nil {
-            fmt.Printf("Error reading response body: %v\n", err)
+            fmt.Printf("%s[ERROR]%s Failed to read response from %s: %v\n", 
+                colors["RED"], colors["NC"], urlStr, err)
             return urlStr, nil
         }
 
@@ -436,7 +457,8 @@ func searchForSensitiveData(urlStr, regex, cookie, proxy string) (string, map[st
     } else {
         body, err := ioutil.ReadFile(urlStr)
         if err != nil {
-            fmt.Printf("Error reading local file %s: %v\n", urlStr, err)
+            fmt.Printf("%s[ERROR]%s Failed to read local file %s: %v\n", 
+                colors["RED"], colors["NC"], urlStr, err)
             return urlStr, nil
         }
 

@@ -12,9 +12,10 @@ import (
     "strings"
     "sync"
     "time"
+    "crypto/tls"
 )
 
-
+var insecureFlag bool = true
 var colors = map[string]string{
     "RED":    "\033[0;31m",
     "GREEN":  "\033[0;32m",
